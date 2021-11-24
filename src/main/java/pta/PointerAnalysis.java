@@ -32,11 +32,17 @@ public class PointerAnalysis extends ForwardFlowAnalysis
         doAnalysis();
 
     }
+    public void printval(HashMap<String,Set<Integer>>val){
+        for(Map.Entry<String,Set<Integer>>x:val.entrySet()){
+            System.out.print(x.getKey()+": ");
+            System.out.println(x.getValue());
+        }
+    }
     @Override
     protected void flowThrough(Object _inset, Object _unit, Object _outset) {
-        HashMap<String,HashSet<Integer>> inset=(HashMap<String, HashSet<Integer>>) _inset;
+        HashMap<String,Set<Integer>> inset=(HashMap<String, Set<Integer>>) _inset;
         Unit unit=(Unit)_unit;
-        HashMap<String,HashSet<Integer>> outset=(HashMap<String, HashSet<Integer>>) _outset;
+        HashMap<String,Set<Integer>> outset=(HashMap<String, Set<Integer>>) _outset;
         copy(inset,outset);
         if(unit instanceof InvokeStmt){
             //int Allocid=0;
@@ -52,11 +58,15 @@ public class PointerAnalysis extends ForwardFlowAnalysis
             }
         }
         else if(unit instanceof DefinitionStmt){
-            System.out.println("This is Def: "+unit.toString());
+//            System.out.println("This is Def: "+unit.toString());
             Value Rop=((DefinitionStmt) unit).getRightOp();
             Value Lop=((DefinitionStmt) unit).getLeftOp();
             if (Rop instanceof NewExpr){
-                outset.put(((Local)Lop).getName(),new HashSet<>(Allocid));
+//                System.out.println(((Local)Lop).getName());
+                Set<Integer>val=new HashSet<>();
+                val.add(Allocid);
+                outset.put(((Local)Lop).getName(),val);
+
             }
             else if(Rop instanceof Local){
                 String lvar=((Local)Lop).getName();
@@ -70,6 +80,7 @@ public class PointerAnalysis extends ForwardFlowAnalysis
         else{
 
         }
+//        printval(outset);
     }
 
     @Override
@@ -87,7 +98,7 @@ public class PointerAnalysis extends ForwardFlowAnalysis
     protected void merge(Object _inset1, Object _inset2, Object _outset) {
         HashMap<String, Set<Integer>>inset1=(HashMap<String, Set<Integer>>)_inset1;
         HashMap<String, Set<Integer>>inset2=(HashMap<String, Set<Integer>>)_inset2;
-        HashMap<String, Set<Integer>>outset=(HashMap<String, Set<Integer>>)_outset;
+        HashMap<String, Set<Integer>>outset=new HashMap<>();
 
         Set<String> k1=inset1.keySet();
         Set<String> k2=inset2.keySet();
@@ -106,6 +117,9 @@ public class PointerAnalysis extends ForwardFlowAnalysis
             }
             outset.put(s,val);
         }
+        HashMap<String,Set<Integer>>out=(HashMap<String, Set<Integer>>)_outset;
+        out.clear();
+        out.putAll(outset);
     }
 
     @Override
@@ -125,6 +139,10 @@ public class PointerAnalysis extends ForwardFlowAnalysis
         for(Unit x:tail){
             merge(result,getFlowAfter(x),result);
         }
+//        for(Map.Entry<String, HashSet<Integer>> x:result.entrySet()){
+//            System.out.print(x.getKey()+": ");
+//            System.out.println(x.getValue());
+//        }
         try {
             PrintStream ps = new PrintStream(
                     new FileOutputStream(new File("result.txt")));
