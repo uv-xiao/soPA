@@ -1,4 +1,4 @@
-package pta;
+package sopa;
 
 import static org.junit.Assert.assertTrue;
 

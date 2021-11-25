@@ -1,4 +1,4 @@
-package pta;
+package sopa;
 
 import fj.Hash;
 import soot.*;
@@ -52,17 +52,17 @@ public class PointerAnalysis extends ForwardFlowAnalysis
                 Allocid=id;
             }
             else if(expr.getMethod().toString().equals("<benchmark.internal.BenchmarkN: void test(int,java.lang.Object)>")){
-                int qid=((IntConstant)expr.getArg(0)).value;
+                int qid=((IntConstant)expr.getArg(0)).v;
                 Value var=expr.getArg(1);
                 Query.add(new Pair<>(new Integer(qid),(Local)var));
             }
         }
         else if(unit instanceof DefinitionStmt){
-//            System.out.println("This is Def: "+unit.toString());
+            System.out.println("This is Def: "+unit.toString());
             Value Rop=((DefinitionStmt) unit).getRightOp();
             Value Lop=((DefinitionStmt) unit).getLeftOp();
             if (Rop instanceof NewExpr){
-//                System.out.println(((Local)Lop).getName());
+                System.out.println(((Local)Lop).getName());
                 Set<Integer>val=new HashSet<>();
                 val.add(Allocid);
                 outset.put(((Local)Lop).getName(),val);
