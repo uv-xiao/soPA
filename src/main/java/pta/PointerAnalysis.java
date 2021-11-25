@@ -15,22 +15,30 @@ import soot.toolkits.scalar.FlowSet;
 import soot.toolkits.scalar.ForwardFlowAnalysis;
 import soot.toolkits.scalar.Pair;
 
+import java.awt.*;
 import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.util.*;
+import java.util.List;
 
 public class PointerAnalysis extends ForwardFlowAnalysis
 {
     int Allocid;
-    Set<Pair<Integer,Local>>Query;
-    public PointerAnalysis(UnitGraph  graph){
+    Map<Integer,Set<Integer> >Query = new TreeMap<>();
+    Map<String,Set<Integer>>entryState;
+    public PointerAnalysis(UnitGraph  graph) {
         super(graph);
-        Allocid=0;
-        Query=new HashSet<>();
+        entryState=new HashMap<>();
+        Allocid = 0;
         doAnalysis();
-
+    }
+    public PointerAnalysis(UnitGraph  graph,Map<String,Set<Integer>> _entryState){
+        super(graph);
+        entryState=new HashMap<>(_entryState);
+        Allocid=0;
+        doAnalysis();
     }
     public void printval(HashMap<String,Set<Integer>>val){
         for(Map.Entry<String,Set<Integer>>x:val.entrySet()){
@@ -38,11 +46,27 @@ public class PointerAnalysis extends ForwardFlowAnalysis
             System.out.println(x.getValue());
         }
     }
+    protected void Invokeprocess(Map<String,Set<Integer>> inset,InvokeExpr expr, Map<String,Set<Integer>> outset){
+        SootMethod callee=expr.getMethod();
+        UnitGraph units=new ExceptionalUnitGraph(callee.getActiveBody());
+        List<Value> args=expr.getArgs();
+        Map<String,Set<Integer>> newentry = new HashMap<>();
+        int cnt=0;
+        for (Value arg:args){
+            Local x=(Local)arg;
+            x.getName();
+            String newname="@parameter"+cnt;
+            newentry.put(newname,inset.get(x.getName()));
+            cnt+=1;
+        }
+        PointerAnalysis calleeAnalysis = new PointerAnalysis(units,newentry);
+
+    }
     @Override
     protected void flowThrough(Object _inset, Object _unit, Object _outset) {
-        HashMap<String,Set<Integer>> inset=(HashMap<String, Set<Integer>>) _inset;
+        Map<String,Set<Integer>> inset=(HashMap<String, Set<Integer>>) _inset;
         Unit unit=(Unit)_unit;
-        HashMap<String,Set<Integer>> outset=(HashMap<String, Set<Integer>>) _outset;
+        Map<String,Set<Integer>> outset=(HashMap<String, Set<Integer>>) _outset;
         copy(inset,outset);
         if(unit instanceof InvokeStmt){
             //int Allocid=0;
@@ -53,8 +77,13 @@ public class PointerAnalysis extends ForwardFlowAnalysis
             }
             else if(expr.getMethod().toString().equals("<benchmark.internal.BenchmarkN: void test(int,java.lang.Object)>")){
                 int qid=((IntConstant)expr.getArg(0)).value;
-                Value var=expr.getArg(1);
-                Query.add(new Pair<>(new Integer(qid),(Local)var));
+                Local var=(Local)expr.getArg(1);
+//                Query.add(new Pair<>(new Integer(qid),(Local)var));
+                Query.put(qid,inset.get(var.getName()));
+            }
+            //过程间调用
+            else{
+//                Invokeprocess(inset,expr,outset);
             }
         }
         else if(unit instanceof DefinitionStmt){
@@ -134,30 +163,29 @@ public class PointerAnalysis extends ForwardFlowAnalysis
     }
 
     public void print(){
-        List<Unit> tail=graph.getTails();
-        HashMap<String,HashSet<Integer>> result=new HashMap<>();
-        for(Unit x:tail){
-            merge(result,getFlowAfter(x),result);
-        }
-//        for(Map.Entry<String, HashSet<Integer>> x:result.entrySet()){
-//            System.out.print(x.getKey()+": ");
-//            System.out.println(x.getValue());
-//        }
         try {
             PrintStream ps = new PrintStream(
                     new FileOutputStream(new File("result.txt")));
-            for(Pair<Integer,Local> x: Query){
-                Integer id = x.getO1();
-                String var = x.getO2().toString();
+            for(Map.Entry<Integer,Set<Integer>> x:Query.entrySet()){
+                Integer id = x.getKey();
+                Set<Integer>pos = x.getValue();
                 ps.print(id+":");
-                Set<Integer> ans=result.get(var);
-                for(Integer pos:ans)
-                    ps.print(" "+pos);
+                for(Integer y:pos)
+                    ps.print(" "+y);
                 ps.println();
             }
             ps.close();
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         }
+    }
+
+    protected Map<String,Set<Integer>> GetFinalState(){
+        List<Unit> tail=graph.getTails();
+        Map<String,Set<Integer>> result=new HashMap<>();
+        for(Unit x:tail){
+            merge(result,getFlowAfter(x),result);
+        }
+        return result;
     }
 }
