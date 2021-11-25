@@ -52,7 +52,7 @@ public class PointerAnalysis extends ForwardFlowAnalysis
                 Allocid=id;
             }
             else if(expr.getMethod().toString().equals("<benchmark.internal.BenchmarkN: void test(int,java.lang.Object)>")){
-                int qid=((IntConstant)expr.getArg(0)).v;
+                int qid=((IntConstant)expr.getArg(0)).value;
                 Value var=expr.getArg(1);
                 Query.add(new Pair<>(new Integer(qid),(Local)var));
             }

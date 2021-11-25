@@ -16,7 +16,7 @@ public class MyPointerAnalysis {
 				+ File.pathSeparator + args[0] + File.separator + "rt.jar"
 				+ File.pathSeparator + args[0] + File.separator + "jce.jar";	
 		System.out.println(classpath);
-		PackManager.v().getPack("wjtp").add(new Transform("wjtp.mypta", new MyTransform()));
+		PackManager.v().getPack("wjtp").add(new Transform("wjtp.mypta", new WholeProgramTransformer()));
 		soot.Main.main(new String[] {
 			"-w",
 			"-p", "cg.spark", "enabled:true",
