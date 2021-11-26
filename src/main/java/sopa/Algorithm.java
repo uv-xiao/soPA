@@ -1,9 +1,11 @@
 package sopa;
 
 import soot.Local;
+import soot.SootMethod;
 import soot.Unit;
 import soot.Value;
 import soot.jimple.*;
+import soot.toolkits.graph.ExceptionalUnitGraph;
 import soot.toolkits.graph.UnitGraph;
 import soot.toolkits.scalar.ForwardFlowAnalysis;
 
@@ -17,11 +19,28 @@ public class Algorithm extends ForwardFlowAnalysis
     static Map<String, Set<String>> analysisResult= new HashMap<>();
     static Map<String, Integer> object2Line = new HashMap<>();
     private static int allocId = 0;
-
+    static Set<String>callstack = new HashSet<>();
+    Map<String, Set<String>> entrySet;
 
     public Algorithm(UnitGraph  graph){
         super(graph);
+        entrySet =new HashMap<>();
         doAnalysis();
+    }
+
+    public Algorithm(UnitGraph graph, Map<String, Set<String>>_entry){
+        super(graph);
+        entrySet =_entry;
+        doAnalysis();
+    }
+
+    public Map<String, Set<String>> getExitSet(){
+        Map<String,Set<String>>set = new HashMap<>();
+        List<Unit> tails=graph.getTails();
+        for(Unit tail:tails){
+            set.putAll((Map<String, Set<String>>) getFlowAfter(tail));
+        }
+        return set;
     }
 
     static private void add2Result(String id, Set<String> set) {
@@ -29,6 +48,72 @@ public class Algorithm extends ForwardFlowAnalysis
             analysisResult.put(id, new HashSet<>());
         }
         analysisResult.get(id).addAll(set);
+    }
+
+    Set<String> getValueSet(Value val,Map<String,Set<String>>inset){
+        Set<String> set = new HashSet<>();
+        if (val instanceof Local){
+            String rName=((Local)val).getName();
+            set.addAll(inset.get(rName));
+        }
+        else if (val instanceof InstanceFieldRef) {
+            InstanceFieldRef fieldRef = (InstanceFieldRef) val;
+            String base = ((Local)fieldRef.getBase()).getName();
+            String field = fieldRef.getField().getName();
+            Set<String> basePointsTo = inset.get(base);
+            for (String pointsTo : basePointsTo) {
+                String pointsToName = pointsTo + "." + field;
+                if (inset.containsKey(pointsToName)) {
+                    set.addAll(inset.get(pointsToName));
+                }
+            }
+        }
+        else if (val instanceof ParameterRef) {
+            String name = "%" + ((ParameterRef) val).getIndex();
+            if (inset.containsKey(name)) {
+                set.addAll(inset.get(name));
+            }
+        }
+        return set;
+    }
+
+    private void enterInvoke(InstanceInvokeExpr expr,Map<String,Set<String>>inset,Map<String,Set<String>>outset){
+        SootMethod method=expr.getMethod();
+        //debug
+        System.out.println("call to " + method.toString());
+        //
+        if(callstack.contains(method.toString())){
+            System.err.println("exist recursive function");
+            throw new RuntimeException("exist recursive function");
+        }
+        UnitGraph ugraph=new ExceptionalUnitGraph(method.getActiveBody());
+        Map<String,Set<String>>newentryset=new HashMap<>();
+
+        for(Map.Entry<String,Set<String>> entry:inset.entrySet()) {
+            String name = entry.getKey();
+            Set<String> pos = entry.getValue();
+            if (name.contains(".")) {
+                newentryset.put(name, pos);
+            }
+        }
+
+        List<Value> args= expr.getArgs();
+        int id=0;
+        for(Value arg: args){
+            Set<String> set=getValueSet(arg,inset);
+            newentryset.put("%"+id,set);
+        }
+        callstack.add(method.toString());
+        Algorithm callee=new Algorithm(ugraph,newentryset);
+        callstack.remove(method.toString());
+        Map<String,Set<String>> set=callee.getExitSet();
+        for(Map.Entry<String,Set<String>> entry:set.entrySet()){
+            String name = entry.getKey();
+            Set<String> pos = entry.getValue();
+            if (name.contains(".")) {
+                outset.put(name, pos);
+            }
+        }
     }
 
     @Override
@@ -72,6 +157,12 @@ public class Algorithm extends ForwardFlowAnalysis
                        }
                     }
                 }
+                else{
+                    enterInvoke((InstanceInvokeExpr)expr,inset,outset);
+                }
+            }
+            else if (expr instanceof InstanceInvokeExpr){ //处理函数调用
+                enterInvoke((InstanceInvokeExpr)expr,inset,outset);
             }
         }
         else if (unit instanceof DefinitionStmt){
@@ -174,7 +265,7 @@ public class Algorithm extends ForwardFlowAnalysis
     }
     @Override
     protected Object entryInitialFlow(){
-        HashMap<String,HashSet<String>> ret = new HashMap<>();
+        Map<String,Set<String>> ret = entrySet;
         return ret;
     }
 
