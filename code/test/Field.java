@@ -20,23 +20,22 @@ public class Field {
         A a = new A(b);
         BenchmarkN.alloc(3);
         A c = new A();
+        BenchmarkN.alloc(4);
+        new B();
         c.f = a.f;
         B d = c.f;
         BenchmarkN.test(1, d);
-        BenchmarkN.test(2, c);
-        BenchmarkN.test(3, c.f);
-        BenchmarkN.test(4, a);
-//        BenchmarkN.alloc(5);
-//        B e = new B();
-//        BenchmarkN.alloc(6);
-//        B f = new B();
-//        BenchmarkN.alloc(7);
-//        A a1 = new A();
-//        BenchmarkN.alloc(8);
-//        A a2 = new A();
-//        a1.f = e;
-//        a2.f = f;
-//        BenchmarkN.test(2, a1.f);
-//        BenchmarkN.test(3, a2.f);
+        BenchmarkN.alloc(5);
+        B e = new B();
+        BenchmarkN.alloc(6);
+        B f = new B();
+        BenchmarkN.alloc(7);
+        A a1 = new A();
+        BenchmarkN.alloc(8);
+        A a2 = new A();
+        a1.f = e;
+        a2.f = f;
+        BenchmarkN.test(2, a1.f);
+        BenchmarkN.test(3, a2.f);
     }
 }

@@ -7,7 +7,6 @@ import soot.jimple.*;
 import soot.toolkits.graph.UnitGraph;
 import soot.toolkits.scalar.ForwardFlowAnalysis;
 
-import java.io.File;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
@@ -40,6 +39,7 @@ public class Algorithm extends ForwardFlowAnalysis
 
         copy(inset,outset);
 
+        // Debug
         System.out.print("Inset: ");
         printSet(inset);
         System.out.println("Unit " + unit);
@@ -59,6 +59,7 @@ public class Algorithm extends ForwardFlowAnalysis
                 SpecialInvokeExpr construct = (SpecialInvokeExpr) expr;
                 String base = ((Local)construct.getBase()).getName();
                 System.out.println(construct.getBase().getType().toString());
+                // TODO: support general cases
                 if (construct.getBase().getType().toString().equals("benchmark.objects.A")) {
                     Set<String> set = new HashSet<>();
                     if (construct.getArgs().size() == 1) {
@@ -102,11 +103,6 @@ public class Algorithm extends ForwardFlowAnalysis
                     }
                 }
             }
-//            else if (rhs instanceof ThisRef) {
-//                if (inset.containsKey("%this")) {
-//                   set = new HashSet<>(inset.get("%this"));
-//                }
-//            }
             else if (rhs instanceof ParameterRef) {
                 String name = "%" + ((ParameterRef) rhs).getIndex();
                 if (inset.containsKey(name)) {
@@ -146,12 +142,15 @@ public class Algorithm extends ForwardFlowAnalysis
             }
         }
         else if(unit instanceof ReturnStmt || unit instanceof ReturnVoidStmt){
+            // TODO: process function return
 
         }
         else{
+            // TODO: process unsupported stmt
 
         }
 
+        // Debug
         System.out.print("Outset: ");
         printSet(outset);
         System.out.println();
