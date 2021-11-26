@@ -1,21 +1,10 @@
 package sopa;
 
 import java.util.Map;
-import java.util.Map.Entry;
-import java.util.TreeMap;
-import java.util.TreeSet;
 
 import soot.*;
-import soot.jimple.DefinitionStmt;
-import soot.jimple.IntConstant;
-import soot.jimple.InvokeExpr;
-import soot.jimple.InvokeStmt;
-import soot.jimple.NewExpr;
-import soot.jimple.toolkits.callgraph.ReachableMethods;
-import soot.toolkits.graph.BriefUnitGraph;
 import soot.toolkits.graph.ExceptionalUnitGraph;
 import soot.toolkits.graph.UnitGraph;
-import soot.util.queue.QueueReader;
 
 public class MyTransform extends SceneTransformer {
 
@@ -43,7 +32,7 @@ public class MyTransform extends SceneTransformer {
 
         SootMethod m =  Scene.v().getMainMethod();
         UnitGraph mgraph=new ExceptionalUnitGraph(m.getActiveBody());
-        PointerAnalysis x=new PointerAnalysis(mgraph);
+        Algorithm x=new Algorithm(mgraph);
         x.print();
 
     }
