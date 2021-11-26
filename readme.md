@@ -17,6 +17,14 @@ In soot, $rx denotes an object. I use `object2line` to find the id of each objec
 We ask that set includes ($rx, {$rx}).
 For field-sensitivity, also feed ($rx.f, {}) into the set.
 
+### inter-procedure
+Now the algorithm can handle function calling without recursion partly.
+
+Each time the given program calling a function, our algorithm will generate a new `Algorithm` Object to calculate the result of the called function, and use store `callstack` detect recursion.
+
+
+
+
 ## Build, Run & Test
 
 From TA
