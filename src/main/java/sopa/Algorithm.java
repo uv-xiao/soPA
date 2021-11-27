@@ -18,6 +18,7 @@ import java.util.*;
 
 public class Algorithm extends ForwardFlowAnalysis
 {
+    static Integer DEBUG = 1;
     static Map<String, Set<String>> analysisResult= new HashMap<>();
     static Map<String, Integer> object2Line = new HashMap<>();
     private static int allocId = 0;
@@ -82,15 +83,16 @@ public class Algorithm extends ForwardFlowAnalysis
 
     private void enterInvoke(InstanceInvokeExpr expr,Map<String,Set<String>>inset,Map<String,Set<String>>outset){
         SootMethod method=expr.getMethod();
-        //debug
-        System.out.println("call to " + method.toString());
-        //
+        // Debug
+        if (DEBUG > 0)
+            System.out.println("call to " + method.toString());
+
         if(callstack.contains(method.toString())){
             System.err.println("exist recursive function");
             throw new RuntimeException("exist recursive function");
         }
         UnitGraph ugraph=new ExceptionalUnitGraph(method.getActiveBody());
-        Map<String,Set<String>>newentryset=new HashMap<>();
+        Map<String,Set<String>> newentryset=new HashMap<>();
 
         for(Map.Entry<String,Set<String>> entry:inset.entrySet()) {
             String name = entry.getKey();
@@ -129,9 +131,11 @@ public class Algorithm extends ForwardFlowAnalysis
         copy(inset,outset);
 
         // Debug
-        System.out.print("Inset: ");
-        printSet(inset);
-        System.out.println("Unit " + unit);
+        if (DEBUG > 0) {
+            System.out.print("Inset: ");
+            printSet(inset);
+            System.out.println("Unit " + unit);
+        }
 
         if(unit instanceof InvokeStmt){
             InvokeExpr expr=((InvokeStmt) unit).getInvokeExpr();
@@ -217,6 +221,7 @@ public class Algorithm extends ForwardFlowAnalysis
             else {
                 System.err.println("Meet unknown rhs");
                 // TODO: throw exception
+                throw new RuntimeException("Unknown rhs");
             }
 
             if (lhs instanceof Local) {
@@ -242,6 +247,7 @@ public class Algorithm extends ForwardFlowAnalysis
             else {
                 System.err.println("Meet unknown lhs");
                 // TODO: throw exception
+                throw new RuntimeException("Unknown lhs");
             }
         }
         else if(unit instanceof ReturnStmt || unit instanceof ReturnVoidStmt){
@@ -250,14 +256,17 @@ public class Algorithm extends ForwardFlowAnalysis
         }
         else{
             // TODO: process unsupported stmt
+            throw new RuntimeException("Unknown unit");
 
         }
 
         // Debug
-        System.out.println("object2Line: "+object2Line);
-        System.out.print("Outset: ");
-        printSet(outset);
-        System.out.println();
+        if (DEBUG > 1) {
+            System.out.println("object2Line: " + object2Line);
+            System.out.print("Outset: ");
+            printSet(outset);
+            System.out.println();
+        }
     }
 
     private void printSet(HashMap<String, Set<String>> inset) {
