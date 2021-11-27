@@ -21,10 +21,11 @@ public class PessiAlg {
                 if (unit instanceof InvokeStmt) {
                     InvokeStmt stmt = (InvokeStmt) unit;
                     InvokeExpr expr = stmt.getInvokeExpr();
-                    if (expr.getMethod().toString().equals("<benchmark.internal.BenchmarkN: void alloc(int)>")) {
+                    if(expr.getMethod().toString().contains("<benchmark.internal") && expr.getMethod().toString().contains("void alloc(int")) {
                         int allocId = ((IntConstant) expr.getArg(0)).value;
                         allocatedIds.add(new Integer(allocId));
-                    } else if (expr.getMethod().toString().equals("<benchmark.internal.BenchmarkN: void test(int,java.lang.Object)>")) {
+                    }
+                    else if(expr.getMethod().toString().contains("<benchmark.internal") && expr.getMethod().toString().contains("void test(int")){
                         int queryId = ((IntConstant) expr.getArg(0)).value;
                         queryIds.add(new Integer(queryId));
                     }

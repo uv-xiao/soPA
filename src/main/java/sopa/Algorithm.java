@@ -15,10 +15,14 @@ import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.util.*;
+import java.util.concurrent.TimeoutException;
 
 public class Algorithm extends ForwardFlowAnalysis
 {
-    static Integer DEBUG = 2;
+    public static long starttime=0;
+    public static long elapsedtime=0;
+    public static long maxDuration= 150L *1000*1000*1000;
+    static Integer DEBUG = 0;
     static Map<String, Set<String>> analysisResult= new HashMap<>();
     static Map<String, Integer> object2Line = new HashMap<>();
     private static int allocId = 0;
@@ -131,6 +135,10 @@ public class Algorithm extends ForwardFlowAnalysis
 
     @Override
     protected void flowThrough(Object _inset, Object _unit, Object _outset) {
+        elapsedtime = System.nanoTime() - starttime;
+        if (elapsedtime > maxDuration)
+            throw new RuntimeException("Time out");
+
         HashMap<String,Set<String>> inset=(HashMap<String, Set<String>>) _inset;
         HashMap<String,Set<String>> outset=(HashMap<String, Set<String>>) _outset;
         Unit unit=(Unit)_unit;
@@ -158,11 +166,15 @@ public class Algorithm extends ForwardFlowAnalysis
             else if (expr instanceof SpecialInvokeExpr) {
                 enterInvoke((InstanceInvokeExpr)expr,inset,outset,null);
             }
-            else if (expr instanceof InstanceInvokeExpr){ //处理函数调用
+            else if (expr instanceof StaticInvokeExpr) {
                 enterInvoke((InstanceInvokeExpr)expr,inset,outset,null);
             }
+            else if (expr instanceof VirtualInvokeExpr) {
+                enterInvoke((InstanceInvokeExpr)expr,inset,outset,null);
+            }
+            // TODO: support other invoke
             else {
-                throw new RuntimeException("unknown InvokeStmt");
+                throw new RuntimeException("Unsupported InvokeExpr");
             }
         }
         else if (unit instanceof DefinitionStmt){
@@ -179,13 +191,14 @@ public class Algorithm extends ForwardFlowAnalysis
                 String name = ((Local)lhs).getName();
                 String pointTo=new String();
 
-                if(allocId != 0)
+                if(allocId != 0) {
                     pointTo=""+allocId;
+                    object2Line.put(pointTo, allocId);
+                }
                 else {
                     pointTo = "" + (--noAllocID);
                 }
                 set.add(pointTo);
-                object2Line.put(pointTo, allocId);
                 allocId = 0;
             }
             else if (rhs instanceof Local){
@@ -217,14 +230,25 @@ public class Algorithm extends ForwardFlowAnalysis
                     set.addAll(inset.get(name));
                 }
             }
-            else if(rhs instanceof ThisRef){
+            else if (rhs instanceof ThisRef){
                 String name="%this";
                 if (inset.containsKey(name)) {
                     set.addAll(inset.get(name));
                 }
             }
-            else if(rhs instanceof InvokeExpr){
-                enterInvoke((InstanceInvokeExpr) rhs,inset,outset,set);
+            else if (rhs instanceof InvokeExpr){
+                if (rhs instanceof SpecialInvokeExpr)
+                    enterInvoke((InstanceInvokeExpr) rhs,inset,outset,set);
+                else
+                if (rhs instanceof StaticInvokeExpr)
+                    enterInvoke((InstanceInvokeExpr) rhs,inset,outset,set);
+                else
+                if (rhs instanceof VirtualInvokeExpr)
+                    enterInvoke((InstanceInvokeExpr) rhs,inset,outset,set);
+                else
+                    // TODO: support other invoke
+                    throw new RuntimeException("Unsupported InvokeExpr");
+
             }
             else if (rhs instanceof LengthExpr) {
             }
@@ -344,9 +368,6 @@ public class Algorithm extends ForwardFlowAnalysis
     }
 
     public void print() throws Exception {
-//        if (analysisResult.size() > 0)
-//            throw new Exception();
-
         try {
             PrintStream ps = new PrintStream(
                     new FileOutputStream("result.txt"));
@@ -370,14 +391,21 @@ public class Algorithm extends ForwardFlowAnalysis
                 answer.append(key).append(":");
                 List<String> pointsTo = new ArrayList<>(analysisResult.get(key));
                 for (String pt : pointsTo) {
-                    answer.append(" ").append(object2Line.get(pt));
+                    if (object2Line.containsKey(pt)) {
+                        if (object2Line.get(pt) == 0) {
+                            System.err.println("Object2Line contains 0");
+                            throw new RuntimeException("object2Line contains 0");
+
+                        }
+                        answer.append(" ").append(object2Line.get(pt));
+                    }
                 }
                 answer.append("\n");
             }
             ps.print(answer);
             ps.close();
         } catch (FileNotFoundException e) {
-            e.printStackTrace();
+            throw e;
         }
     }
 }
