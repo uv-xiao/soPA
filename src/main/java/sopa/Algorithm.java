@@ -24,6 +24,7 @@ public class Algorithm extends ForwardFlowAnalysis
     private static int noAllocID = 0;
     static Set<String>callstack = new HashSet<>();
     Map<String, Set<String>> entrySet;
+    Set<String> returnSet = new HashSet<>();
 
     public Algorithm(UnitGraph graph){
         super(graph);
@@ -80,7 +81,7 @@ public class Algorithm extends ForwardFlowAnalysis
         return set;
     }
 
-    private void enterInvoke(InstanceInvokeExpr expr,Map<String,Set<String>>inset,Map<String,Set<String>>outset){
+    private void enterInvoke(InstanceInvokeExpr expr,Map<String,Set<String>>inset,Map<String,Set<String>>outset,Set<String> ret){
         SootMethod method=expr.getMethod();
         Value base=expr.getBase();
         Set<String> basePointTo=getValueSet(base,inset);
@@ -114,12 +115,15 @@ public class Algorithm extends ForwardFlowAnalysis
         Algorithm callee=new Algorithm(ugraph,newentryset);
         callstack.remove(method.toString());
         Map<String,Set<String>> set=callee.getExitSet();
-        for(Map.Entry<String,Set<String>> entry:set.entrySet()){
+        for(Map.Entry<String,Set<String>> entry:set.entrySet()) {
             String name = entry.getKey();
             Set<String> pos = entry.getValue();
             if (name.contains(".")) {
                 outset.put(name, pos);
             }
+        }
+        if(ret != null) {
+            ret.addAll(callee.returnSet);
         }
     }
 
@@ -166,11 +170,11 @@ public class Algorithm extends ForwardFlowAnalysis
                     }
                 }
                 else{
-                    enterInvoke((InstanceInvokeExpr)expr,inset,outset);
+                    enterInvoke((InstanceInvokeExpr)expr,inset,outset,null);
                 }
             }
             else if (expr instanceof InstanceInvokeExpr){ //处理函数调用
-                enterInvoke((InstanceInvokeExpr)expr,inset,outset);
+                enterInvoke((InstanceInvokeExpr)expr,inset,outset,null);
             }
         }
         else if (unit instanceof DefinitionStmt){
@@ -235,7 +239,7 @@ public class Algorithm extends ForwardFlowAnalysis
                 }
             }
             else if(rhs instanceof InvokeExpr){
-
+                enterInvoke((InstanceInvokeExpr) rhs,inset,outset,set);
             }
             else {
                 System.err.println("Meet unknown rhs");
@@ -268,8 +272,15 @@ public class Algorithm extends ForwardFlowAnalysis
                 // TODO: throw exception
             }
         }
-        else if(unit instanceof ReturnStmt || unit instanceof ReturnVoidStmt){
+        else if(unit instanceof ReturnStmt){
             // TODO: process function return
+            Value x=((ReturnStmt)unit).getOp();
+            //debug
+            System.out.println("returnOP: "+x.toString());
+            //
+            returnSet.addAll(getValueSet(x,inset));
+        }
+        else if(unit instanceof ReturnVoidStmt){
 
         }
         else{
