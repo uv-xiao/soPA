@@ -21,7 +21,7 @@ public class MyPointerAnalysis {
 			"-w",
 			"-p", "cg.spark", "enabled:true",
 			"-p", "wjtp.mypta", "enabled:true",
-//				"-f","J",
+				"-f","J",
 			"-soot-class-path", classpath,
 			args[1]				
 		});
