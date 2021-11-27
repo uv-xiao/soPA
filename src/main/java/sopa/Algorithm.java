@@ -1,5 +1,6 @@
 package sopa;
 
+import jdk.nashorn.internal.runtime.AllocationStrategy;
 import soot.Local;
 import soot.SootMethod;
 import soot.Unit;
@@ -9,6 +10,7 @@ import soot.toolkits.graph.ExceptionalUnitGraph;
 import soot.toolkits.graph.UnitGraph;
 import soot.toolkits.scalar.ForwardFlowAnalysis;
 
+import javax.swing.plaf.synth.SynthDesktopIconUI;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
@@ -19,6 +21,7 @@ public class Algorithm extends ForwardFlowAnalysis
     static Map<String, Set<String>> analysisResult= new HashMap<>();
     static Map<String, Integer> object2Line = new HashMap<>();
     private static int allocId = 0;
+    private static int noAllocID = 0;
     static Set<String>callstack = new HashSet<>();
     Map<String, Set<String>> entrySet;
 
@@ -102,6 +105,7 @@ public class Algorithm extends ForwardFlowAnalysis
         for(Value arg: args){
             Set<String> set=getValueSet(arg,inset);
             newentryset.put("%"+id,set);
+            id+=1;
         }
         callstack.add(method.toString());
         Algorithm callee=new Algorithm(ugraph,newentryset);
@@ -131,10 +135,10 @@ public class Algorithm extends ForwardFlowAnalysis
 
         if(unit instanceof InvokeStmt){
             InvokeExpr expr=((InvokeStmt) unit).getInvokeExpr();
-            if(expr.getMethod().toString().equals("<benchmark.internal.BenchmarkN: void alloc(int)>")){
+            if(expr.getMethod().toString().contains("<benchmark.internal") && expr.getMethod().toString().contains("void alloc(int)>")){
                 allocId = ((IntConstant)expr.getArg(0)).value;
             }
-            else if(expr.getMethod().toString().equals("<benchmark.internal.BenchmarkN: void test(int,java.lang.Object)>")){
+            else if(expr.getMethod().toString().contains("<benchmark.internal") && expr.getMethod().toString().contains("void test(int,java.lang.Object)>")){
                 int qid=((IntConstant)expr.getArg(0)).value;
                 Value var=expr.getArg(1);
                 Set<String> result = inset.get(((Local)var).getName());
@@ -142,10 +146,10 @@ public class Algorithm extends ForwardFlowAnalysis
             }
             else if (expr instanceof SpecialInvokeExpr) {
                 SpecialInvokeExpr construct = (SpecialInvokeExpr) expr;
-                String base = ((Local)construct.getBase()).getName();
+                Set<String> basePointTo = inset.get(((Local)construct.getBase()).getName());
                 System.out.println(construct.getBase().getType().toString());
                 // TODO: support general cases
-                if (construct.getBase().getType().toString().equals("benchmark.objects.A")) {
+                if (construct.getBase().getType().toString().equals("benchmark.objects.A")) { //处理构造函数
                     Set<String> set = new HashSet<>();
                     if (construct.getArgs().size() == 1) {
                        Value rhs = construct.getArg(0);
@@ -153,7 +157,8 @@ public class Algorithm extends ForwardFlowAnalysis
                            String name = ((Local) rhs).getName();
                            if (inset.containsKey(name))
                                set.addAll(inset.get(name));
-                           outset.put(base+".f", set);
+                           for(String pointTo:basePointTo)
+                               outset.put(pointTo+".f", set);
                        }
                     }
                 }
@@ -174,8 +179,15 @@ public class Algorithm extends ForwardFlowAnalysis
 
             if (rhs instanceof NewExpr){
                 String name = ((Local)lhs).getName();
-                set.add(name);
-                object2Line.put(name, allocId);
+                String pointTo=new String();
+
+                if(allocId != 0)
+                    pointTo=""+allocId;
+                else {
+                    pointTo = "" + (--noAllocID);
+                }
+                set.add(pointTo);
+                object2Line.put(pointTo, allocId);
                 allocId = 0;
             }
             else if (rhs instanceof Local){
@@ -242,6 +254,7 @@ public class Algorithm extends ForwardFlowAnalysis
         }
 
         // Debug
+        System.out.println("object2Line: "+object2Line);
         System.out.print("Outset: ");
         printSet(outset);
         System.out.println();
