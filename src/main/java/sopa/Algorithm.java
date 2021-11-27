@@ -1,10 +1,7 @@
 package sopa;
 
 import jdk.nashorn.internal.runtime.AllocationStrategy;
-import soot.Local;
-import soot.SootMethod;
-import soot.Unit;
-import soot.Value;
+import soot.*;
 import soot.jimple.*;
 import soot.toolkits.graph.ExceptionalUnitGraph;
 import soot.toolkits.graph.UnitGraph;
@@ -25,6 +22,7 @@ public class Algorithm extends ForwardFlowAnalysis
     static Integer DEBUG = 0;
     static Map<String, Set<String>> analysisResult= new HashMap<>();
     static Map<String, Integer> object2Line = new HashMap<>();
+    static Map<String, Type> objectType = new HashMap<>();
     private static int allocId = 0;
     private static int noAllocID = 0;
     static Set<String>callstack = new HashSet<>();
@@ -89,6 +87,11 @@ public class Algorithm extends ForwardFlowAnalysis
     private void enterInvoke(InstanceInvokeExpr expr,Map<String,Set<String>>inset,Map<String,Set<String>>outset,Set<String> ret){
         SootMethod method=expr.getMethod();
         Value base=expr.getBase();
+        //Debug
+        if(DEBUG>0) {
+            System.out.println("Class: "+base.getType());
+            System.out.println("method: "+method.toString());
+        }
         Set<String> basePointTo=getValueSet(base,inset);
         // Debug
         if (DEBUG > 0)
@@ -98,6 +101,8 @@ public class Algorithm extends ForwardFlowAnalysis
             System.err.println("exist recursive function");
             throw new RuntimeException("exist recursive function");
         }
+
+
         UnitGraph ugraph=new ExceptionalUnitGraph(method.getActiveBody());
         Map<String,Set<String>> newentryset=new HashMap<>();
 
@@ -133,6 +138,93 @@ public class Algorithm extends ForwardFlowAnalysis
         }
     }
 
+    private void enterVirtualInvoke(InstanceInvokeExpr expr,Map<String,Set<String>>inset,Map<String,Set<String>>outset,Set<String> ret){
+        SootMethod virtualmethod=expr.getMethod();
+        Value base=expr.getBase();
+        //Debug
+        if(DEBUG>0) {
+            System.out.println("Class: "+base.getType());
+            System.out.println("method: "+virtualmethod.toString());
+        }
+        Set<String> basePointTo=getValueSet(base,inset);
+        // Debug
+        if (DEBUG > 0)
+            System.out.println("call to " + virtualmethod.toString());
+
+        if(callstack.contains(virtualmethod.toString())){
+            System.err.println("exist recursive function");
+            throw new RuntimeException("exist recursive function");
+        }
+
+        Set<Type>types=new HashSet<>();
+        for(String x: basePointTo){
+            types.add(objectType.get(x));
+        }
+        Set<SootMethod>methods=new HashSet<>();
+        for(Type type:types){
+            if(MyTransform.Classes.containsKey(type.toString())){
+                SootClass cl=MyTransform.Classes.get(type.toString());
+                //debug
+                if(DEBUG>0){
+                    System.out.println("virtual invoke class: "+cl);
+                }
+                while(true){
+//                    String methodname=method.toString();
+//                    methodname=methodname.split(":")[1];
+//                    methodname='<'+cl.toString()+":"+methodname;
+                    SootMethod me=cl.getMethodByName(virtualmethod.getName());
+
+                    if(me!=null) {
+                        methods.add(me);
+                        //debug
+                        if (DEBUG > 0){
+                            System.out.println("virtual method: " + me);
+                        }
+                        break;
+                    }
+                }
+            }
+        }
+
+        Map<String,Set<String>> newentryset=new HashMap<>();
+
+        for(Map.Entry<String,Set<String>> entry:inset.entrySet()) {
+            String name = entry.getKey();
+            Set<String> pos = entry.getValue();
+            if (name.contains(".")) {
+                newentryset.put(name, pos);
+            }
+        }
+        outset=new HashMap<>();
+        for(SootMethod method:methods) {
+            Map<String,Set<String>> newoutset = new HashMap<>();
+            copy(inset,newoutset);
+            UnitGraph ugraph = new ExceptionalUnitGraph(method.getActiveBody());
+            List<Value> args = expr.getArgs();
+            int id = 0;
+            for (Value arg : args) {
+                Set<String> set = getValueSet(arg, inset);
+                newentryset.put("%" + id, set);
+                id += 1;
+            }
+            newentryset.put("%this", basePointTo);
+            callstack.add(method.toString());
+            Algorithm callee = new Algorithm(ugraph, newentryset);
+            callstack.remove(method.toString());
+            Map<String, Set<String>> set = callee.getExitSet();
+            for (Map.Entry<String, Set<String>> entry : set.entrySet()) {
+                String name = entry.getKey();
+                Set<String> pos = entry.getValue();
+                if (name.contains(".")) {
+                    newoutset.put(name, pos);
+                }
+            }
+            merge(outset,newoutset,outset);
+            if (ret != null) {
+                ret.addAll(callee.returnSet);
+            }
+        }
+    }
     @Override
     protected void flowThrough(Object _inset, Object _unit, Object _outset) {
         elapsedtime = System.nanoTime() - starttime;
@@ -199,6 +291,10 @@ public class Algorithm extends ForwardFlowAnalysis
                     pointTo = "" + (--noAllocID);
                 }
                 set.add(pointTo);
+
+                object2Line.put(pointTo, allocId);
+                objectType.put(pointTo,((NewExpr)rhs).getType());
+
                 allocId = 0;
             }
             else if (rhs instanceof Local){
@@ -236,16 +332,16 @@ public class Algorithm extends ForwardFlowAnalysis
                     set.addAll(inset.get(name));
                 }
             }
-            else if (rhs instanceof InvokeExpr){
+            else if (rhs instanceof InvokeExpr) {
                 if (rhs instanceof SpecialInvokeExpr)
-                    enterInvoke((InstanceInvokeExpr) rhs,inset,outset,set);
-                else
-                if (rhs instanceof StaticInvokeExpr)
-                    enterInvoke((InstanceInvokeExpr) rhs,inset,outset,set);
-                else
-                if (rhs instanceof VirtualInvokeExpr)
-                    enterInvoke((InstanceInvokeExpr) rhs,inset,outset,set);
-                else
+                    enterInvoke((InstanceInvokeExpr) rhs, inset, outset, set);
+                else if (rhs instanceof StaticInvokeExpr)
+                    enterInvoke((InstanceInvokeExpr) rhs, inset, outset, set);
+                else if (rhs instanceof VirtualInvokeExpr)
+                    enterInvoke((InstanceInvokeExpr) rhs, inset, outset, set);
+                else if (rhs instanceof InterfaceInvokeExpr) {
+                    enterVirtualInvoke((InstanceInvokeExpr) rhs, inset, outset, set);
+                } else
                     // TODO: support other invoke
                     throw new RuntimeException("Unsupported InvokeExpr");
 
@@ -368,6 +464,14 @@ public class Algorithm extends ForwardFlowAnalysis
     }
 
     public void print() throws Exception {
+
+//        if (analysisResult.size() > 0)
+//            throw new Exception();
+        //Debug
+        if(DEBUG>0){
+            System.out.println("objectType: "+objectType);
+        }
+
         try {
             PrintStream ps = new PrintStream(
                     new FileOutputStream("result.txt"));
