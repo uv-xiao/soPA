@@ -2,6 +2,7 @@ package sopa;
 
 import java.util.Map;
 
+import org.jf.dexlib2.iface.ExceptionHandler;
 import soot.*;
 import soot.toolkits.graph.ExceptionalUnitGraph;
 import soot.toolkits.graph.UnitGraph;
@@ -31,9 +32,15 @@ public class MyTransform extends SceneTransformer {
 
 
         SootMethod m =  Scene.v().getMainMethod();
-        UnitGraph mgraph=new ExceptionalUnitGraph(m.getActiveBody());
-        Algorithm x=new Algorithm(mgraph);
-        x.print();
+        UnitGraph mgraph = new ExceptionalUnitGraph(m.getActiveBody());
+        try {
+            Algorithm x = new Algorithm(mgraph);
+            x.print();
+        }
+        catch (Exception e) {
+            PessiAlg handler = new PessiAlg(Scene.v().getMainClass());
+            handler.print();
+        }
 
     }
 

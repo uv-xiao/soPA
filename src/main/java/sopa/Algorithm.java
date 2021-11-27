@@ -25,7 +25,7 @@ public class Algorithm extends ForwardFlowAnalysis
     static Set<String>callstack = new HashSet<>();
     Map<String, Set<String>> entrySet;
 
-    public Algorithm(UnitGraph  graph){
+    public Algorithm(UnitGraph graph){
         super(graph);
         entrySet =new HashMap<>();
         doAnalysis();
@@ -320,7 +320,10 @@ public class Algorithm extends ForwardFlowAnalysis
         }
     }
 
-    public void print(){
+    public void print() throws Exception {
+//        if (analysisResult.size() > 0)
+//            throw new Exception();
+
         try {
             PrintStream ps = new PrintStream(
                     new FileOutputStream("result.txt"));
