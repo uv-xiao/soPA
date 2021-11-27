@@ -82,6 +82,8 @@ public class Algorithm extends ForwardFlowAnalysis
 
     private void enterInvoke(InstanceInvokeExpr expr,Map<String,Set<String>>inset,Map<String,Set<String>>outset){
         SootMethod method=expr.getMethod();
+        Value base=expr.getBase();
+        Set<String> basePointTo=getValueSet(base,inset);
         //debug
         System.out.println("call to " + method.toString());
         //
@@ -102,11 +104,12 @@ public class Algorithm extends ForwardFlowAnalysis
 
         List<Value> args= expr.getArgs();
         int id=0;
-        for(Value arg: args){
-            Set<String> set=getValueSet(arg,inset);
-            newentryset.put("%"+id,set);
-            id+=1;
+        for(Value arg: args) {
+            Set<String> set = getValueSet(arg, inset);
+            newentryset.put("%" + id, set);
+            id += 1;
         }
+        newentryset.put("%this",basePointTo);
         callstack.add(method.toString());
         Algorithm callee=new Algorithm(ugraph,newentryset);
         callstack.remove(method.toString());
@@ -176,7 +179,9 @@ public class Algorithm extends ForwardFlowAnalysis
             Value lhs = stmt.getLeftOp();
 
             Set<String> set = new HashSet<>();
-
+            //debug
+            System.out.println("rhs: "+rhs.getClass());
+            //
             if (rhs instanceof NewExpr){
                 String name = ((Local)lhs).getName();
                 String pointTo=new String();
@@ -192,11 +197,17 @@ public class Algorithm extends ForwardFlowAnalysis
             }
             else if (rhs instanceof Local){
                 String rName=((Local)rhs).getName();
+                //debug
+                System.out.println("Local: "+rName);
+                //
                 set.addAll(inset.get(rName));
             }
             else if (rhs instanceof InstanceFieldRef) {
                 InstanceFieldRef fieldRef = (InstanceFieldRef) rhs;
                 String base = ((Local)fieldRef.getBase()).getName();
+                //debug
+                System.out.println("basename: "+base);
+                //
                 String field = fieldRef.getField().getName();
                 Set<String> basePointsTo = inset.get(base);
                 for (String pointsTo : basePointsTo) {
@@ -214,8 +225,21 @@ public class Algorithm extends ForwardFlowAnalysis
             }
             else if (rhs instanceof NullConstant) {
             }
+            else if(rhs instanceof LengthExpr){
+
+            }
+            else if(rhs instanceof ThisRef){
+                String name="%this";
+                if (inset.containsKey(name)) {
+                    set.addAll(inset.get(name));
+                }
+            }
+            else if(rhs instanceof InvokeExpr){
+
+            }
             else {
                 System.err.println("Meet unknown rhs");
+                System.out.println("Meet unknown rhs");
                 // TODO: throw exception
             }
 
