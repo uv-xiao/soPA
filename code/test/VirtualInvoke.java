@@ -4,6 +4,7 @@ import benchmark.internal.BenchmarkN;
 import benchmark.objects.A;
 import benchmark.objects.B;
 import benchmark.objects.H;
+import benchmark.objects.I;
 
 /*
  * @testcase FieldSensitivity2
@@ -29,7 +30,7 @@ public class VirtualInvoke {
 
     BenchmarkN.alloc(1);
     A a=new A();
-    H h=new H();
+    I h=new H();
     A c=h.foo(a);
 
     BenchmarkN.test(1, c);
