@@ -18,7 +18,7 @@ import java.util.*;
 
 public class Algorithm extends ForwardFlowAnalysis
 {
-    static Integer DEBUG = 1;
+    static Integer DEBUG = 2;
     static Map<String, Set<String>> analysisResult= new HashMap<>();
     static Map<String, Integer> object2Line = new HashMap<>();
     private static int allocId = 0;
@@ -156,29 +156,13 @@ public class Algorithm extends ForwardFlowAnalysis
                 add2Result(Integer.toString(qid), result);
             }
             else if (expr instanceof SpecialInvokeExpr) {
-                SpecialInvokeExpr construct = (SpecialInvokeExpr) expr;
-                Set<String> basePointTo = inset.get(((Local)construct.getBase()).getName());
-                System.out.println(construct.getBase().getType().toString());
-                // TODO: support general cases
-                if (construct.getBase().getType().toString().equals("benchmark.objects.A")) { //处理构造函数
-                    Set<String> set = new HashSet<>();
-                    if (construct.getArgs().size() == 1) {
-                       Value rhs = construct.getArg(0);
-                       if (rhs instanceof Local) {
-                           String name = ((Local) rhs).getName();
-                           if (inset.containsKey(name))
-                               set.addAll(inset.get(name));
-                           for(String pointTo:basePointTo)
-                               outset.put(pointTo+".f", set);
-                       }
-                    }
-                }
-                else{
-                    enterInvoke((InstanceInvokeExpr)expr,inset,outset,null);
-                }
+                enterInvoke((InstanceInvokeExpr)expr,inset,outset,null);
             }
             else if (expr instanceof InstanceInvokeExpr){ //处理函数调用
                 enterInvoke((InstanceInvokeExpr)expr,inset,outset,null);
+            }
+            else {
+                throw new RuntimeException("unknown InvokeStmt");
             }
         }
         else if (unit instanceof DefinitionStmt){
@@ -233,11 +217,6 @@ public class Algorithm extends ForwardFlowAnalysis
                     set.addAll(inset.get(name));
                 }
             }
-            else if (rhs instanceof NullConstant) {
-            }
-            else if(rhs instanceof LengthExpr){
-
-            }
             else if(rhs instanceof ThisRef){
                 String name="%this";
                 if (inset.containsKey(name)) {
@@ -247,9 +226,12 @@ public class Algorithm extends ForwardFlowAnalysis
             else if(rhs instanceof InvokeExpr){
                 enterInvoke((InstanceInvokeExpr) rhs,inset,outset,set);
             }
+            else if (rhs instanceof LengthExpr) {
+            }
+            else if (rhs instanceof Constant) {
+            }
             else {
                 System.err.println("Meet unknown rhs");
-                // TODO: throw exception
                 throw new RuntimeException("Unknown rhs");
             }
 
@@ -275,12 +257,10 @@ public class Algorithm extends ForwardFlowAnalysis
             }
             else {
                 System.err.println("Meet unknown lhs");
-                // TODO: throw exception
                 throw new RuntimeException("Unknown lhs");
             }
         }
         else if(unit instanceof ReturnStmt){
-            // TODO: process function return
             Value x=((ReturnStmt)unit).getOp();
             //debug
             System.out.println("returnOP: "+x.toString());
@@ -291,13 +271,11 @@ public class Algorithm extends ForwardFlowAnalysis
 
         }
         else{
-            // TODO: process unsupported stmt
             throw new RuntimeException("Unknown unit");
-
         }
 
         // Debug
-        if (DEBUG > 1) {
+        if (DEBUG > 0) {
             System.out.println("object2Line: " + object2Line);
             System.out.print("Outset: ");
             printSet(outset);
