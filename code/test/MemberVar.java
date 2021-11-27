@@ -18,7 +18,7 @@ public class MemberVar {
 
   A x;
 
-  public FieldSensitivity() {
+  public MemberVar() {
     x=new A();
   }
 
@@ -60,7 +60,7 @@ public class MemberVar {
   public static void main(String[] args) {
 
     BenchmarkN.alloc(9);
-    FieldSensitivity fs2 = new FieldSensitivity();
+    MemberVar fs2 = new MemberVar();
     fs2.test();
     fs2.test2();
 
