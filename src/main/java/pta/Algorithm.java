@@ -1,19 +1,15 @@
-package sopa;
+package pta;
 
-import jdk.nashorn.internal.runtime.AllocationStrategy;
 import soot.*;
 import soot.jimple.*;
 import soot.toolkits.graph.ExceptionalUnitGraph;
 import soot.toolkits.graph.UnitGraph;
 import soot.toolkits.scalar.ForwardFlowAnalysis;
 
-import javax.swing.plaf.synth.SynthDesktopIconUI;
 import java.io.FileNotFoundException;
 import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.util.*;
-import java.util.concurrent.TimeoutException;
-import java.util.function.UnaryOperator;
 
 public class Algorithm extends ForwardFlowAnalysis
 {

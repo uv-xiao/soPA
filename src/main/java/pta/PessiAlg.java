@@ -1,4 +1,4 @@
-package sopa;
+package pta;
 
 import soot.*;
 import soot.jimple.IntConstant;
