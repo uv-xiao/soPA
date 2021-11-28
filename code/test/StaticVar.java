@@ -12,7 +12,7 @@ import benchmark.objects.B;
 public class StaticVar {
     public StaticVar() {
     }
-    static A a;
+    static A a = new A();
 
     static void myadd(A b){
         a=b;
