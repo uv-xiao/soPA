@@ -1,4 +1,4 @@
-package basic;
+package test;
 
 import benchmark.internal.Benchmark;
 
