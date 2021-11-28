@@ -20,7 +20,7 @@ public class Algorithm extends ForwardFlowAnalysis
     public static long starttime=0;
     public static long elapsedtime=0;
     public static long maxDuration= 150L *1000*1000*1000;
-    static Integer DEBUG = 0;
+    static Integer DEBUG = 1;
     static Map<String, Set<String>> analysisResult= new HashMap<>();
     static Map<String, Integer> object2Line = new HashMap<>();
     static Map<String, Type> objectType = new HashMap<>();
@@ -139,6 +139,57 @@ public class Algorithm extends ForwardFlowAnalysis
         }
     }
 
+    private void enterStaticInvoke(StaticInvokeExpr expr,Map<String,Set<String>>inset,Map<String,Set<String>>outset,Set<String> ret){
+        SootMethod method=expr.getMethod();
+        //Debug
+        if(DEBUG>0) {
+            System.out.println("Class: static");
+            System.out.println("method: "+method.toString());
+        }
+        // Debug
+        if (DEBUG > 0)
+            System.out.println("call to " + method.toString());
+
+        if(callstack.contains(method.toString())){
+            System.err.println("exist recursive function");
+            throw new RuntimeException("exist recursive function");
+        }
+
+
+        UnitGraph ugraph=new ExceptionalUnitGraph(method.getActiveBody());
+        Map<String,Set<String>> newentryset=new HashMap<>();
+
+        for(Map.Entry<String,Set<String>> entry:inset.entrySet()) {
+            String name = entry.getKey();
+            Set<String> pos = entry.getValue();
+            if (name.contains(".")) {
+                newentryset.put(name, pos);
+            }
+        }
+
+        List<Value> args= expr.getArgs();
+        int id=0;
+        for(Value arg: args) {
+            Set<String> set = getValueSet(arg, inset);
+            newentryset.put("%" + id, set);
+            id += 1;
+        }
+        callstack.add(method.toString());
+        Algorithm callee=new Algorithm(ugraph,newentryset);
+        callstack.remove(method.toString());
+        Map<String,Set<String>> set=callee.getExitSet();
+        for(Map.Entry<String,Set<String>> entry:set.entrySet()) {
+            String name = entry.getKey();
+            Set<String> pos = entry.getValue();
+            if (name.contains(".")) {
+                outset.put(name, pos);
+            }
+        }
+        if(ret != null) {
+            ret.addAll(callee.returnSet);
+        }
+    }
+
     private void enterVirtualInvoke(InstanceInvokeExpr expr,Map<String,Set<String>>inset,Map<String,Set<String>>outset,Set<String> ret){
         SootMethod virtualmethod=expr.getMethod();
         Value base=expr.getBase();
@@ -173,22 +224,23 @@ public class Algorithm extends ForwardFlowAnalysis
 //                    String methodname=method.toString();
 //                    methodname=methodname.split(":")[1];
 //                    methodname='<'+cl.toString()+":"+methodname;
-                    SootMethod me=cl.getMethod(virtualmethod.getSubSignature());
-
-                    if(me!=null) {
+                    try {
+                        SootMethod me = cl.getMethod(virtualmethod.getSubSignature());
                         methods.add(me);
                         //debug
-                        if (DEBUG > 0){
+                        if (DEBUG > 0) {
                             System.out.println("virtual method: " + me);
                         }
                         break;
+                    }
+                    catch (Throwable e){
+                        cl=cl.getSuperclass();
                     }
                 }
             }
         }
 
         Map<String,Set<String>> newentryset=new HashMap<>();
-
         for(Map.Entry<String,Set<String>> entry:inset.entrySet()) {
             String name = entry.getKey();
             Set<String> pos = entry.getValue();
@@ -260,10 +312,10 @@ public class Algorithm extends ForwardFlowAnalysis
                 enterInvoke((InstanceInvokeExpr)expr,inset,outset,null);
             }
             else if (expr instanceof StaticInvokeExpr) {
-                enterInvoke((InstanceInvokeExpr)expr,inset,outset,null);
+                enterStaticInvoke((StaticInvokeExpr)expr,inset,outset,null);
             }
             else if (expr instanceof VirtualInvokeExpr) {
-                enterInvoke((InstanceInvokeExpr)expr,inset,outset,null);
+                enterVirtualInvoke((InstanceInvokeExpr)expr,inset,outset,null);
             }
             else if(expr instanceof InterfaceInvokeExpr){
                 enterVirtualInvoke((InstanceInvokeExpr)expr,inset,outset,null);
@@ -297,7 +349,6 @@ public class Algorithm extends ForwardFlowAnalysis
                 }
                 set.add(pointTo);
 
-                object2Line.put(pointTo, allocId);
                 objectType.put(pointTo,((NewExpr)rhs).getType());
 
                 allocId = 0;
@@ -341,9 +392,9 @@ public class Algorithm extends ForwardFlowAnalysis
                 if (rhs instanceof SpecialInvokeExpr)
                     enterInvoke((InstanceInvokeExpr) rhs, inset, outset, set);
                 else if (rhs instanceof StaticInvokeExpr)
-                    enterInvoke((InstanceInvokeExpr) rhs, inset, outset, set);
+                    enterStaticInvoke((StaticInvokeExpr) rhs, inset, outset, set);
                 else if (rhs instanceof VirtualInvokeExpr)
-                    enterInvoke((InstanceInvokeExpr) rhs, inset, outset, set);
+                    enterVirtualInvoke((InstanceInvokeExpr) rhs, inset, outset, set);
                 else if (rhs instanceof InterfaceInvokeExpr) {
                     enterVirtualInvoke((InstanceInvokeExpr) rhs, inset, outset, set);
                 } else {
@@ -358,6 +409,15 @@ public class Algorithm extends ForwardFlowAnalysis
             }
             else if(rhs instanceof BinopExpr){
 
+            }
+            else if(rhs instanceof CastExpr){
+                Local op=(Local)((CastExpr)rhs).getOp();
+                String rName=op.getName();
+                // Debug
+                if (DEBUG > 1)
+                    System.out.println("Local: "+rName);
+                //
+                set.addAll(inset.get(rName));
             }
             else {
                 System.err.println("Meet unknown rhs");
@@ -375,6 +435,7 @@ public class Algorithm extends ForwardFlowAnalysis
                 Set<String> basePointsTo = inset.get(base);
                 for (String pointsTo : basePointsTo) {
                     String pointsToName =  pointsTo + "." + field;
+
                     if (!outset.containsKey(pointsToName))
                         outset.put(pointsToName, new HashSet<>());
                     outset.get(pointsToName).addAll(set);
@@ -519,6 +580,7 @@ public class Algorithm extends ForwardFlowAnalysis
             ps.print(answer);
             ps.close();
         } catch (FileNotFoundException e) {
+            System.err.println("File not found");
             throw e;
         }
     }

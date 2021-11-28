@@ -59,6 +59,8 @@ public class MyTransform extends SceneTransformer {
             x.print();
         }
         catch (Throwable e) {
+            e.printStackTrace(System.err);
+            System.err.println("print the soundest result");
             PessiAlg handler = new PessiAlg(Scene.v().getMainClass());
             handler.print();
         }
