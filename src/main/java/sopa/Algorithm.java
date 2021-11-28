@@ -20,25 +20,28 @@ public class Algorithm extends ForwardFlowAnalysis
     public static long starttime=0;
     public static long elapsedtime=0;
     public static long maxDuration= 150L *1000*1000*1000;
-    static Integer DEBUG = 1;
+    static Integer DEBUG = 0;
     static Map<String, Set<String>> analysisResult= new HashMap<>();
     static Map<String, Integer> object2Line = new HashMap<>();
     static Map<String, Type> objectType = new HashMap<>();
     private static int allocId = 0;
     private static int noAllocID = 0;
+    private String className;
     static Set<String>callstack = new HashSet<>();
     Map<String, Set<String>> entrySet;
     Set<String> returnSet = new HashSet<>();
 
-    public Algorithm(UnitGraph graph){
+    public Algorithm(UnitGraph graph,String _className){
         super(graph);
         entrySet =new HashMap<>();
+        className=_className;
         doAnalysis();
     }
 
-    public Algorithm(UnitGraph graph, Map<String, Set<String>>_entry){
+    public Algorithm(UnitGraph graph,String _className,Map<String, Set<String>>_entry){
         super(graph);
         entrySet =_entry;
+        className=_className;
         doAnalysis();
     }
 
@@ -124,7 +127,7 @@ public class Algorithm extends ForwardFlowAnalysis
         }
         newentryset.put("%this",basePointTo);
         callstack.add(method.toString());
-        Algorithm callee=new Algorithm(ugraph,newentryset);
+        Algorithm callee=new Algorithm(ugraph,method.getDeclaringClass().toString(),newentryset);
         callstack.remove(method.toString());
         Map<String,Set<String>> set=callee.getExitSet();
         for(Map.Entry<String,Set<String>> entry:set.entrySet()) {
@@ -175,7 +178,7 @@ public class Algorithm extends ForwardFlowAnalysis
             id += 1;
         }
         callstack.add(method.toString());
-        Algorithm callee=new Algorithm(ugraph,newentryset);
+        Algorithm callee=new Algorithm(ugraph,method.getDeclaringClass().toString(),newentryset);
         callstack.remove(method.toString());
         Map<String,Set<String>> set=callee.getExitSet();
         for(Map.Entry<String,Set<String>> entry:set.entrySet()) {
@@ -261,7 +264,7 @@ public class Algorithm extends ForwardFlowAnalysis
             }
             newentryset.put("%this", basePointTo);
             callstack.add(method.toString());
-            Algorithm callee = new Algorithm(ugraph, newentryset);
+            Algorithm callee = new Algorithm(ugraph,method.getDeclaringClass().toString(), newentryset);
             callstack.remove(method.toString());
             Map<String, Set<String>> set = callee.getExitSet();
             for (Map.Entry<String, Set<String>> entry : set.entrySet()) {
@@ -281,6 +284,7 @@ public class Algorithm extends ForwardFlowAnalysis
     protected void flowThrough(Object _inset, Object _unit, Object _outset) {
         elapsedtime = System.nanoTime() - starttime;
         if (elapsedtime > maxDuration) {
+            System.err.println(elapsedtime);
             System.err.println("Err: Time out");
             throw new RuntimeException("Time out");
         }
@@ -333,8 +337,10 @@ public class Algorithm extends ForwardFlowAnalysis
 
             Set<String> set = new HashSet<>();
             // Debug
-            if (DEBUG > 1)
-                System.out.println("rhs: "+rhs.getClass());
+            if (DEBUG > 1) {
+                System.out.println("rhs: " + rhs.getClass());
+                System.out.println("lhs: " + lhs.getClass());
+            }
             //
             if (rhs instanceof NewExpr){
                 String name = ((Local)lhs).getName();
@@ -358,6 +364,13 @@ public class Algorithm extends ForwardFlowAnalysis
                 // Debug
                 if (DEBUG > 1)
                     System.out.println("Local: "+rName);
+                //
+                set.addAll(inset.get(rName));
+            }
+            else if(rhs instanceof StaticFieldRef){
+                String rName=className+"."+((StaticFieldRef)rhs).getField().getName();
+                if (DEBUG > 1)
+                    System.out.println("StaticFieldRef: "+rName);
                 //
                 set.addAll(inset.get(rName));
             }
@@ -428,6 +441,12 @@ public class Algorithm extends ForwardFlowAnalysis
                String name = ((Local) lhs).getName();
                outset.put(name, set);
             }
+            else if(lhs instanceof StaticFieldRef){
+                if(DEBUG>1)
+                    System.out.println("Classname: "+className);
+                String name=className+"."+((StaticFieldRef) lhs).getField().getName();
+                outset.put(name, set);
+            }
             else if (lhs instanceof InstanceFieldRef) {
                 InstanceFieldRef fieldRef = (InstanceFieldRef) lhs;
                 String base = ((Local)fieldRef.getBase()).getName();
@@ -450,7 +469,8 @@ public class Algorithm extends ForwardFlowAnalysis
         else if(unit instanceof ReturnStmt){
             Value x=((ReturnStmt)unit).getOp();
             //debug
-            System.out.println("returnOP: "+x.toString());
+            if(DEBUG>0)
+                System.out.println("returnOP: "+x.toString());
             //
             returnSet.addAll(getValueSet(x,inset));
         }

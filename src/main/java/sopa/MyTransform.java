@@ -17,7 +17,7 @@ import soot.toolkits.graph.UnitGraph;
 public class MyTransform extends SceneTransformer {
 
 
-    public static Integer DEBUG=1;
+    public static Integer DEBUG=0;
     static public Map<String,SootClass> Classes = new HashMap<>();
     @Override
     protected void internalTransform(String arg0, Map<String, String> arg1) {
@@ -47,15 +47,33 @@ public class MyTransform extends SceneTransformer {
         }
         SootMethod mainMethod = Scene.v().getMainMethod();
         Chain<SootClass> CClass=Scene.v().getClasses();
-        for(SootClass cl:CClass){
-            Classes.put(cl.toString(),cl);
-        }
-
-        SootMethod m =  Scene.v().getMainMethod();
-        UnitGraph mgraph = new ExceptionalUnitGraph(m.getActiveBody());
+//        //
         try {
+
             Algorithm.starttime = System.nanoTime();
-            Algorithm x = new Algorithm(mgraph);
+            Map<String, Set<String>> entrySet = new HashMap<>();
+            for (SootClass cl : CClass) {
+                Classes.put(cl.toString(), cl);
+//                System.out.println(cl.toString());
+//                System.out.println(cl.toString().split("\\.").length);
+//                System.out.flush();
+                if (cl.toString().split("\\.")[0].equals("test")) {
+                    try {
+                        SootMethod clinit = cl.getMethod("void <clinit>()");
+
+                        UnitGraph mGraph = new ExceptionalUnitGraph(clinit.getActiveBody());
+                        Algorithm clInitAnalysis = new Algorithm(mGraph, cl.toString());
+                        entrySet.putAll((clInitAnalysis.getExitSet()));
+                    } catch (Throwable e) {
+
+                    }
+
+                }
+            }
+//        //
+            SootMethod m = Scene.v().getMainMethod();
+            UnitGraph mgraph = new ExceptionalUnitGraph(m.getActiveBody());
+            Algorithm x = new Algorithm(mgraph, mainMethod.getDeclaringClass().toString(), entrySet);
             x.print();
         }
         catch (Throwable e) {
