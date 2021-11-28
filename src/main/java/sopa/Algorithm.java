@@ -46,7 +46,7 @@ public class Algorithm extends ForwardFlowAnalysis
         Map<String,Set<String>>set = new HashMap<>();
         List<Unit> tails=graph.getTails();
         for(Unit tail:tails){
-            set.putAll((Map<String, Set<String>>) getFlowAfter(tail));
+            merge(set,(Map<String, Set<String>>) getFlowAfter(tail),set);
         }
         return set;
     }
@@ -460,6 +460,9 @@ public class Algorithm extends ForwardFlowAnalysis
         else if(unit instanceof IfStmt){
 
         }
+        else if(unit instanceof GotoStmt){
+
+        }
         else{
             System.err.println("Err: Unknown unit "+unit);
             throw new RuntimeException("Unknown unit");
@@ -498,9 +501,9 @@ public class Algorithm extends ForwardFlowAnalysis
 
     @Override
     protected void merge(Object _inset1, Object _inset2, Object _outset) {
-        HashMap<String, Set<Integer>>inset1=(HashMap<String, Set<Integer>>)_inset1;
-        HashMap<String, Set<Integer>>inset2=(HashMap<String, Set<Integer>>)_inset2;
-        HashMap<String, Set<Integer>>outset=new HashMap<>();
+        HashMap<String, Set<String>>inset1=(HashMap<String, Set<String>>)_inset1;
+        HashMap<String, Set<String>>inset2=(HashMap<String, Set<String>>)_inset2;
+        HashMap<String, Set<String>>outset=new HashMap<>();
 
         Set<String> k1=inset1.keySet();
         Set<String> k2=inset2.keySet();
@@ -508,8 +511,8 @@ public class Algorithm extends ForwardFlowAnalysis
         outkey.addAll(k1);
         outkey.addAll(k2);
         for(String s:outkey){
-            Set<Integer>val=new HashSet<>();
-            Set<Integer> x= inset1.get(s);
+            Set<String>val=new HashSet<>();
+            Set<String> x= inset1.get(s);
             if(x != null){
                 val.addAll(x);
             }
@@ -519,19 +522,22 @@ public class Algorithm extends ForwardFlowAnalysis
             }
             outset.put(s,val);
         }
-        HashMap<String,Set<Integer>>out=(HashMap<String, Set<Integer>>)_outset;
+        HashMap<String,Set<String>>out=(HashMap<String, Set<String>>)_outset;
         out.clear();
         out.putAll(outset);
     }
 
     @Override
     protected void copy(Object _inset, Object _outset) {
-        HashMap<String, Set<Integer>>inset=(HashMap<String, Set<Integer>>)_inset;
-        HashMap<String, Set<Integer>>outset=(HashMap<String, Set<Integer>>)_outset;
-        outset.clear();
-        for(Map.Entry<String,Set<Integer>> x:inset.entrySet()){
+        Map<String, Set<String>>inset=(Map<String, Set<String>>)_inset;
+        Map<String, Set<String>>outset=new HashMap<>();
+        for(Map.Entry<String,Set<String>> x:inset.entrySet()){
             outset.put(x.getKey(),new HashSet<>(x.getValue()));
         }
+
+        Map<String, Set<String>>out=(HashMap<String, Set<String>>) _outset;
+        out.clear();
+        out.putAll(outset);
     }
 
     public void print() throws Exception {
