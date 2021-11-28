@@ -13,6 +13,7 @@ import java.io.FileOutputStream;
 import java.io.PrintStream;
 import java.util.*;
 import java.util.concurrent.TimeoutException;
+import java.util.function.UnaryOperator;
 
 public class Algorithm extends ForwardFlowAnalysis
 {
@@ -172,7 +173,7 @@ public class Algorithm extends ForwardFlowAnalysis
 //                    String methodname=method.toString();
 //                    methodname=methodname.split(":")[1];
 //                    methodname='<'+cl.toString()+":"+methodname;
-                    SootMethod me=cl.getMethodByName(virtualmethod.getName());
+                    SootMethod me=cl.getMethod(virtualmethod.getSubSignature());
 
                     if(me!=null) {
                         methods.add(me);
@@ -195,7 +196,6 @@ public class Algorithm extends ForwardFlowAnalysis
                 newentryset.put(name, pos);
             }
         }
-        outset=new HashMap<>();
         for(SootMethod method:methods) {
             Map<String,Set<String>> newoutset = new HashMap<>();
             copy(inset,newoutset);
@@ -228,9 +228,10 @@ public class Algorithm extends ForwardFlowAnalysis
     @Override
     protected void flowThrough(Object _inset, Object _unit, Object _outset) {
         elapsedtime = System.nanoTime() - starttime;
-        if (elapsedtime > maxDuration)
+        if (elapsedtime > maxDuration) {
+            System.err.println("Err: Time out");
             throw new RuntimeException("Time out");
-
+        }
         HashMap<String,Set<String>> inset=(HashMap<String, Set<String>>) _inset;
         HashMap<String,Set<String>> outset=(HashMap<String, Set<String>>) _outset;
         Unit unit=(Unit)_unit;
@@ -264,8 +265,12 @@ public class Algorithm extends ForwardFlowAnalysis
             else if (expr instanceof VirtualInvokeExpr) {
                 enterInvoke((InstanceInvokeExpr)expr,inset,outset,null);
             }
+            else if(expr instanceof InterfaceInvokeExpr){
+                enterVirtualInvoke((InstanceInvokeExpr)expr,inset,outset,null);
+            }
             // TODO: support other invoke
             else {
+                System.err.println("Unsupported InvokeExpr");
                 throw new RuntimeException("Unsupported InvokeExpr");
             }
         }
@@ -341,14 +346,18 @@ public class Algorithm extends ForwardFlowAnalysis
                     enterInvoke((InstanceInvokeExpr) rhs, inset, outset, set);
                 else if (rhs instanceof InterfaceInvokeExpr) {
                     enterVirtualInvoke((InstanceInvokeExpr) rhs, inset, outset, set);
-                } else
+                } else {
                     // TODO: support other invoke
+                    System.err.println("Unsupported InvokeExpr");
                     throw new RuntimeException("Unsupported InvokeExpr");
-
+                }
             }
-            else if (rhs instanceof LengthExpr) {
+            else if (rhs instanceof UnopExpr) {
             }
             else if (rhs instanceof Constant) {
+            }
+            else if(rhs instanceof BinopExpr){
+
             }
             else {
                 System.err.println("Meet unknown rhs");
@@ -366,13 +375,10 @@ public class Algorithm extends ForwardFlowAnalysis
                 Set<String> basePointsTo = inset.get(base);
                 for (String pointsTo : basePointsTo) {
                     String pointsToName =  pointsTo + "." + field;
-                    if (basePointsTo.size() == 1) {
-                        outset.put(pointsToName, set);
-                    } else {
-                        if (!outset.containsKey(pointsToName))
-                            outset.put(pointsToName, new HashSet<>());
-                        outset.get(pointsToName).addAll(set);
-                    }
+                    if (!outset.containsKey(pointsToName))
+                        outset.put(pointsToName, new HashSet<>());
+                    outset.get(pointsToName).addAll(set);
+
                 }
             }
             else {
@@ -390,7 +396,11 @@ public class Algorithm extends ForwardFlowAnalysis
         else if(unit instanceof ReturnVoidStmt){
 
         }
+        else if(unit instanceof IfStmt){
+
+        }
         else{
+            System.err.println("Err: Unknown unit "+unit);
             throw new RuntimeException("Unknown unit");
         }
 
