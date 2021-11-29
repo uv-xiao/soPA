@@ -1,5 +1,5 @@
 .idea/*
 target/*
 sootOutput/*
-result.txt
+*.txt
 *.DS_Store
